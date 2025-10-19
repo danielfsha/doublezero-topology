@@ -34,7 +34,9 @@ export default function LinksPage() {
             <CardContent className="pt-6">
               <div className="text-center space-y-4">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-foreground mx-auto"></div>
-                <p className="text-muted-foreground">Loading topology data...</p>
+                <p className="text-muted-foreground">
+                  Loading topology data...
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -51,9 +53,13 @@ export default function LinksPage() {
           <Card className="w-96">
             <CardContent className="pt-6">
               <div className="text-center space-y-4">
-                <h3 className="text-lg font-semibold text-destructive">Error Loading Data</h3>
+                <h3 className="text-lg font-semibold text-destructive">
+                  Error Loading Data
+                </h3>
                 <p className="text-sm text-muted-foreground">{error}</p>
-                <Button onClick={() => router.push("/upload")}>Back to Upload</Button>
+                <Button onClick={() => router.push("/upload")}>
+                  Back to Upload
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -63,19 +69,19 @@ export default function LinksPage() {
   }
 
   // Show empty state if no data
-  if (!topologyData || !topologyData.topology || topologyData.topology.length === 0) {
+  if (
+    !topologyData ||
+    !topologyData.topology ||
+    topologyData.topology.length === 0
+  ) {
     return (
       <div className="container mx-auto py-8">
         <div className="space-y-6">
           {/* Header */}
           <div>
-            <h1 className="font-heading text-3xl font-bold text-foreground">Network Links</h1>
-            <p className="font-body text-muted-foreground mt-2">
-              Sortable, filterable view of all topology links with health status.
-            </p>
-            <p className="font-body text-sm text-muted-foreground/70 mt-1">
-              No links loaded
-            </p>
+            <h1 className="font-heading text-3xl font-bold text-foreground">
+              Network Links
+            </h1>
           </div>
 
           {/* Empty state */}
@@ -87,7 +93,9 @@ export default function LinksPage() {
                   <p className="text-sm text-muted-foreground">
                     Please upload topology data files to view network links.
                   </p>
-                  <Button onClick={() => router.push("/upload")}>Go to Upload</Button>
+                  <Button onClick={() => router.push("/upload")}>
+                    Go to Upload
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -102,17 +110,6 @@ export default function LinksPage() {
   return (
     <div className="container mx-auto py-8">
       <div className="space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="font-heading text-3xl font-bold text-foreground">Network Links</h1>
-          <p className="font-body text-muted-foreground mt-2">
-            Sortable, filterable view of all topology links with health status.
-          </p>
-          <p className="font-body text-sm text-muted-foreground/70 mt-1">
-            Loaded {links.length} links
-          </p>
-        </div>
-
         {/* Links Table */}
         <LinksTable data={links} />
       </div>

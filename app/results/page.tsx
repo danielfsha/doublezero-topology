@@ -13,10 +13,23 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTopology } from "@/contexts/TopologyContext";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
+import {
+  Map,
+  Table,
+  CheckCircle2,
+  AlertTriangle,
+  TrendingUp,
+  AlertCircle,
+} from "lucide-react";
 
 export default function ResultsPage() {
   const router = useRouter();
@@ -31,7 +44,7 @@ export default function ResultsPage() {
   // Prefetch map page for faster navigation
   useEffect(() => {
     if (topologyData) {
-      router.prefetch('/map');
+      router.prefetch("/map");
     }
   }, [topologyData, router]);
 
@@ -81,7 +94,7 @@ export default function ResultsPage() {
   const formatDate = (isoString: string): string => {
     const date = new Date(isoString);
     // Use consistent formatting to avoid hydration mismatches
-    return date.toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
+    return date.toISOString().replace("T", " ").substring(0, 19) + " UTC";
   };
 
   const healthPercentage = (count: number): string => {
@@ -91,129 +104,139 @@ export default function ResultsPage() {
 
   return (
     <div className="container mx-auto py-10 max-w-6xl space-y-8">
-      {/* Header */}
-      <div className="text-center">
-        <h1 className="font-heading text-4xl font-bold mb-3">Topology Analysis Results</h1>
-        <p className="font-body text-muted-foreground text-lg">
-          {summary.total_links} network links analyzed
-        </p>
-        <p className="font-body text-muted-foreground text-sm mt-1">
-          Processed: {formatDate(metadata.processedAt)}
-        </p>
+      {/* Navigation Cards - Large */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card
+          className="h-full border-2 border-border hover:border-green-500/50 transition-all duration-200 hover:shadow-lg cursor-pointer"
+          onClick={() => router.push("/map")}
+        >
+          <CardHeader className="p-6 space-y-4">
+            <div className="w-12 h-12 rounded-lg bg-green-500/10 flex items-center justify-center mb-2">
+              <Map className="h-6 w-6 text-green-600 dark:text-green-400" />
+            </div>
+            <div className="space-y-3">
+              <CardTitle className="text-2xl font-semibold">Map View</CardTitle>
+              <CardDescription className="text-base leading-relaxed space-y-2.5">
+                <p>Interactive geographic visualization:</p>
+                <ul className="space-y-2 text-muted-foreground">
+                  <li>• Color-coded links by health status</li>
+                  <li>• Hover to see detailed metrics</li>
+                </ul>
+              </CardDescription>
+            </div>
+          </CardHeader>
+        </Card>
+
+        <Card
+          className="h-full border-2 border-border hover:border-purple-500/50 transition-all duration-200 hover:shadow-lg cursor-pointer"
+          onClick={() => router.push("/links")}
+        >
+          <CardHeader className="p-6 space-y-4">
+            <div className="w-12 h-12 rounded-lg bg-purple-500/10 flex items-center justify-center mb-2">
+              <Table className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+            </div>
+            <div className="space-y-3">
+              <CardTitle className="text-2xl font-semibold">
+                Links Table
+              </CardTitle>
+              <CardDescription className="text-base leading-relaxed space-y-2.5">
+                <p>Comprehensive data table with:</p>
+                <ul className="space-y-2 text-muted-foreground">
+                  <li>• Sortable & filterable network links</li>
+                  <li>• Expected vs Measured RTT metrics</li>
+                </ul>
+              </CardDescription>
+            </div>
+          </CardHeader>
+        </Card>
       </div>
 
-      {/* Big Cards Grid - Clickable */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Healthy Links Card */}
+      {/* Metric Cards - Compact */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Healthy Links */}
         <Card
-          className="border-2 border-green-200 dark:border-green-900 bg-green-50 dark:bg-green-950/20 hover:shadow-xl transition-all cursor-pointer group"
+          className="border-2 border-border hover:border-green-500/50 transition-all duration-200 hover:shadow-lg cursor-pointer"
           onClick={() => router.push("/links?health_status=HEALTHY")}
         >
-          <CardHeader className="pb-4">
-            <CardDescription className="text-green-800 dark:text-green-300 text-base font-semibold">
-              Healthy Links
-            </CardDescription>
-            <CardTitle className="text-6xl text-green-600 dark:text-green-400 font-bold">
+          <CardHeader className="p-4 space-y-2">
+            <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center">
+              <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
+            </div>
+            <CardTitle className="text-3xl font-bold text-green-600 dark:text-green-400">
               {summary.healthy}
             </CardTitle>
+            <CardDescription className="text-sm font-medium">
+              Healthy Links
+            </CardDescription>
+            <p className="text-xs text-muted-foreground">
+              {healthPercentage(summary.healthy)}% of total
+            </p>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm text-green-700 dark:text-green-300">
-              {healthPercentage(summary.healthy)}% of total links
-            </p>
-            <p className="text-sm text-green-600 dark:text-green-400 group-hover:underline">
-              Click to view all healthy links →
-            </p>
-          </CardContent>
         </Card>
 
-        {/* Missing IS-IS Card */}
+        {/* Missing IS-IS */}
         <Card
-          className="border-2 border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/20 hover:shadow-xl transition-all cursor-pointer group"
+          className="border-2 border-border hover:border-red-500/50 transition-all duration-200 hover:shadow-lg cursor-pointer"
           onClick={() => router.push("/links?data_status=MISSING_ISIS")}
         >
-          <CardHeader className="pb-4">
-            <CardDescription className="text-red-800 dark:text-red-300 text-base font-semibold">
-              Missing IS-IS Data
-            </CardDescription>
-            <CardTitle className="text-6xl text-red-600 dark:text-red-400 font-bold">
+          <CardHeader className="p-4 space-y-2">
+            <div className="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center">
+              <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" />
+            </div>
+            <CardTitle className="text-3xl font-bold text-red-600 dark:text-red-400">
               {summary.missing_isis}
             </CardTitle>
+            <CardDescription className="text-sm font-medium">
+              Missing IS-IS Data
+            </CardDescription>
+            <p className="text-xs text-muted-foreground">
+              {healthPercentage(summary.missing_isis)}% of total
+            </p>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm text-red-700 dark:text-red-300">
-              {healthPercentage(summary.missing_isis)}% of total links
-            </p>
-            <p className="text-sm text-red-600 dark:text-red-400 group-hover:underline">
-              Click to view affected links →
-            </p>
-          </CardContent>
         </Card>
 
-        {/* High Drift Card */}
+        {/* High Drift */}
         <Card
-          className="border-2 border-orange-200 dark:border-orange-900 bg-orange-50 dark:bg-orange-950/20 hover:shadow-xl transition-all cursor-pointer group"
+          className="border-2 border-border hover:border-orange-500/50 transition-all duration-200 hover:shadow-lg cursor-pointer"
           onClick={() => router.push("/links?health_status=DRIFT_HIGH")}
         >
-          <CardHeader className="pb-4">
-            <CardDescription className="text-orange-800 dark:text-orange-300 text-base font-semibold">
-              High Drift Detected
-            </CardDescription>
-            <CardTitle className="text-6xl text-orange-600 dark:text-orange-400 font-bold">
+          <CardHeader className="p-4 space-y-2">
+            <div className="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center">
+              <TrendingUp className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+            </div>
+            <CardTitle className="text-3xl font-bold text-orange-600 dark:text-orange-400">
               {summary.drift_high}
             </CardTitle>
+            <CardDescription className="text-sm font-medium">
+              High Drift Detected
+            </CardDescription>
+            <p className="text-xs text-muted-foreground">
+              {healthPercentage(summary.drift_high)}% of total
+            </p>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm text-orange-700 dark:text-orange-300">
-              {healthPercentage(summary.drift_high)}% of total links
-            </p>
-            <p className="text-sm text-orange-600 dark:text-orange-400 group-hover:underline">
-              Click to view affected links →
-            </p>
-          </CardContent>
         </Card>
 
-        {/* Missing Telemetry Card */}
+        {/* Missing Telemetry */}
         <Card
-          className="border-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/20 hover:shadow-xl transition-all cursor-pointer group"
+          className="border-2 border-border hover:border-gray-500/50 transition-all duration-200 hover:shadow-lg cursor-pointer"
           onClick={() => router.push("/links?health_status=MISSING_TELEMETRY")}
         >
-          <CardHeader className="pb-4">
-            <CardDescription className="text-gray-800 dark:text-gray-300 text-base font-semibold">
-              Missing Telemetry
-            </CardDescription>
-            <CardTitle className="text-6xl text-gray-600 dark:text-gray-400 font-bold">
+          <CardHeader className="p-4 space-y-2">
+            <div className="w-10 h-10 rounded-lg bg-gray-500/10 flex items-center justify-center">
+              <AlertCircle className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+            </div>
+            <CardTitle className="text-3xl font-bold text-gray-600 dark:text-gray-400">
               {summary.missing_telemetry}
             </CardTitle>
+            <CardDescription className="text-sm font-medium">
+              Missing Telemetry
+            </CardDescription>
+            <p className="text-xs text-muted-foreground">
+              {healthPercentage(summary.missing_telemetry)}% of total
+            </p>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm text-gray-700 dark:text-gray-300">
-              {healthPercentage(summary.missing_telemetry)}% of total links
-            </p>
-            <p className="text-sm text-gray-600 dark:text-gray-400 group-hover:underline">
-              Click to view affected links →
-            </p>
-          </CardContent>
         </Card>
       </div>
-
-      {/* Quick Actions */}
-      <Card className="border-2">
-        <CardHeader>
-          <CardTitle className="text-xl">Quick Actions</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-wrap gap-4">
-          <Button onClick={() => router.push("/map")} size="lg" className="text-base">
-            View Map
-          </Button>
-          <Button onClick={() => router.push("/links")} variant="outline" size="lg" className="text-base">
-            View All Links
-          </Button>
-          <Button onClick={() => router.push("/upload")} variant="outline" size="lg" className="text-base">
-            Upload New Files
-          </Button>
-        </CardContent>
-      </Card>
     </div>
   );
 }
