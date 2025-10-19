@@ -36,6 +36,7 @@ import { useTableStore } from "@/lib/stores/table-store";
 import { useRouter, useSearchParams } from "next/navigation";
 import { MapPin, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { getBandwidthTier } from "@/lib/parsers/bandwidth";
 
 interface LinksTableProps {
   data: TopologyLink[];
@@ -59,6 +60,16 @@ export function LinksTable({ data }: LinksTableProps) {
   const searchParams = useSearchParams();
 
   const { selectedLinkPk, setSelectedLink, setHoveredLink } = useTableStore();
+
+  // Auto-detect unique bandwidth values from data
+  const uniqueBandwidths = React.useMemo(() => {
+    const tiersSet = new Set<number>();
+    data.forEach(link => {
+      const tier = getBandwidthTier(link.bandwidth_gbps);
+      tiersSet.add(tier);
+    });
+    return Array.from(tiersSet).sort((a, b) => a - b);
+  }, [data]);
 
   // Prefetch map page for faster navigation
   React.useEffect(() => {
@@ -143,6 +154,46 @@ export function LinksTable({ data }: LinksTableProps) {
       },
     },
     {
+      accessorKey: "bandwidth_gbps",
+      header: "Bandwidth",
+      cell: ({ row }) => {
+        const bandwidth = row.original.bandwidth_label;
+        const gbps = row.getValue("bandwidth_gbps") as number | null;
+
+        if (!bandwidth || gbps === null) {
+          return <span className="text-muted-foreground">N/A</span>;
+        }
+
+        // Color code by bandwidth tier
+        let colorClass = "text-foreground";
+        if (gbps >= 200) {
+          colorClass = "text-sky-600 dark:text-sky-400"; // Deep blue
+        } else if (gbps >= 100) {
+          colorClass = "text-teal-600 dark:text-teal-400"; // Dark teal
+        } else if (gbps >= 50) {
+          colorClass = "text-teal-500 dark:text-teal-500"; // Medium teal
+        } else {
+          colorClass = "text-green-500 dark:text-green-400"; // Light green
+        }
+
+        return (
+          <span className={`font-semibold ${colorClass}`}>
+            {bandwidth}
+          </span>
+        );
+      },
+      sortingFn: (rowA, rowB) => {
+        const a = rowA.original.bandwidth_gbps ?? -1;
+        const b = rowB.original.bandwidth_gbps ?? -1;
+        return a - b;
+      },
+      filterFn: (row, id, value) => {
+        if (value === "ALL") return true;
+        const tier = getBandwidthTier(row.getValue(id) as number | null);
+        return tier === parseInt(value);
+      },
+    },
+    {
       accessorKey: "expected_delay_us",
       header: "Expected Delay",
       cell: ({ row }) => formatDelay(row.getValue("expected_delay_us")),
@@ -212,13 +263,14 @@ export function LinksTable({ data }: LinksTableProps) {
 
   const healthStatusFilter = table.getColumn("health_status")?.getFilterValue() as string | undefined;
   const dataStatusFilter = table.getColumn("data_status")?.getFilterValue() as string | undefined;
+  const bandwidthFilter = table.getColumn("bandwidth_gbps")?.getFilterValue() as string | undefined;
 
   const clearAllFilters = () => {
     setColumnFilters([]);
     router.push('/links');
   };
 
-  const hasActiveFilters = healthStatusFilter || dataStatusFilter;
+  const hasActiveFilters = healthStatusFilter || dataStatusFilter || bandwidthFilter;
 
   return (
     <div className="space-y-4">
@@ -243,6 +295,15 @@ export function LinksTable({ data }: LinksTableProps) {
               <X
                 className="h-3 w-3 cursor-pointer hover:text-destructive"
                 onClick={() => table.getColumn("data_status")?.setFilterValue(undefined)}
+              />
+            </Badge>
+          )}
+          {bandwidthFilter && (
+            <Badge variant="secondary" className="gap-1">
+              Bandwidth: {bandwidthFilter} Gbps
+              <X
+                className="h-3 w-3 cursor-pointer hover:text-destructive"
+                onClick={() => table.getColumn("bandwidth_gbps")?.setFilterValue(undefined)}
               />
             </Badge>
           )}
@@ -298,6 +359,25 @@ export function LinksTable({ data }: LinksTableProps) {
             <SelectItem value="MISSING_ISIS">Missing IS-IS</SelectItem>
             <SelectItem value="MISSING_TELEMETRY">Missing Telemetry</SelectItem>
             <SelectItem value="MISSING_BOTH">Missing Both</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={bandwidthFilter ?? "ALL"}
+          onValueChange={(value) =>
+            table.getColumn("bandwidth_gbps")?.setFilterValue(value === "ALL" ? undefined : value)
+          }
+        >
+          <SelectTrigger className="w-[200px]">
+            <SelectValue placeholder="Filter by bandwidth" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">All Bandwidth</SelectItem>
+            {uniqueBandwidths.map(bw => (
+              <SelectItem key={bw} value={String(bw)}>
+                {bw} Gbps
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
 
