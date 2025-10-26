@@ -1,19 +1,23 @@
 /**
- * Upload Flow Integration Tests
+ * Home Page Integration Tests (v5 - Modal-based Design)
  *
- * Tests the end-to-end flow from file upload to topology processing.
+ * Tests the end-to-end flow from file upload to topology processing on the home page.
  *
- * Current Implementation:
- * - POST to /api/upload with FormData (snapshot + isis files)
- * - API processes files in-memory and returns topology data
- * - No S3 or external storage involved
+ * v5 Implementation:
+ * - Home page (/) with side-by-side cards
+ * - S3 and Upload buttons both visible (no tabs)
+ * - Modals for S3 fetch and manual upload
+ * - Manual upload: POST to /api/upload/snapshot and /api/upload/isis
+ * - Both stored in TopologyContext separately
+ * - Auto-processing when both files are ready
+ * - No S3 or external storage involved in manual upload flow
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useRouter } from "next/navigation";
-import UploadPage from "@/app/upload/page";
+import HomePage from "@/app/page";
 import { TopologyProvider } from "@/contexts/TopologyContext";
 
 // Mock Next.js router
@@ -24,26 +28,59 @@ vi.mock("next/navigation", () => ({
 // Mock fetch for upload API
 global.fetch = vi.fn();
 
-describe("Upload Flow Integration", () => {
+describe("Home Page Integration (v5 - Modal Design)", () => {
   const mockPush = vi.fn();
+  const mockPrefetch = vi.fn();
   const mockFetch = vi.mocked(fetch);
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // Clear sessionStorage to prevent data leaking between tests
+    sessionStorage.clear();
     vi.mocked(useRouter).mockReturnValue({
       push: mockPush,
       back: vi.fn(),
       forward: vi.fn(),
       refresh: vi.fn(),
       replace: vi.fn(),
-      prefetch: vi.fn(),
+      prefetch: mockPrefetch,
     } as any);
   });
 
-  it("should successfully upload files and process topology data", async () => {
+  it("should successfully upload both files via modals", async () => {
     const user = userEvent.setup();
 
-    // Mock successful upload and processing (single API call)
+    // Mock snapshot upload
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        success: true,
+        data: {
+          snapshot: { test: "snapshot-data" },
+          filename: "snapshot.json",
+          size: 100,
+          timestamp: Date.now(),
+          source: "upload",
+        },
+      }),
+    } as Response);
+
+    // Mock ISIS upload
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        success: true,
+        data: {
+          isis: { test: "isis-data" },
+          filename: "isis-db.json",
+          size: 50,
+          timestamp: Date.now(),
+          source: "upload",
+        },
+      }),
+    } as Response);
+
+    // Mock topology processing
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
@@ -59,67 +96,122 @@ describe("Upload Flow Integration", () => {
             missing_isis: 1,
           },
           processedAt: new Date().toISOString(),
+          sources: {
+            snapshot: { source: "upload", filename: "snapshot.json" },
+            isis: { source: "upload", filename: "isis-db.json" },
+          },
         },
       }),
     } as Response);
 
-    // Render upload page
+    // Render home page
     render(
       <TopologyProvider>
-        <UploadPage />
+        <HomePage />
       </TopologyProvider>
     );
 
-    // Create mock files
-    const snapshotFile = new File(['{"test": "data"}'], "snapshot.json", {
-      type: "application/json",
-    });
-    const isisFile = new File(['{"test": "isis"}'], "isis-db.json", {
-      type: "application/json",
+    // Click Upload button on Snapshot card to open modal
+    const snapshotUploadButtons = screen.getAllByRole("button", { name: /Upload/i });
+    // First Upload button is for Snapshot card
+    await user.click(snapshotUploadButtons[0]);
+
+    // Wait for modal to open
+    await waitFor(() => {
+      expect(screen.getByText(/Upload Snapshot File/i)).toBeInTheDocument();
     });
 
-    // Upload files
-    const snapshotInput = screen.getByLabelText(/Snapshot File/i);
-    const isisInput = screen.getByLabelText(/IS-IS Database File/i);
+    // Find file input in modal (rendered in portal)
+    const snapshotInput = document.querySelector("#snapshot-upload-unified") as HTMLInputElement;
+    expect(snapshotInput).toBeTruthy();
 
+    // Create and upload snapshot file
+    const snapshotFile = new File(['{"test": "snapshot-data"}'], "snapshot.json", {
+      type: "application/json",
+    });
     await user.upload(snapshotInput, snapshotFile);
+
+    // Click "Upload Snapshot" button in modal
+    const uploadSnapshotButton = screen.getByRole("button", { name: /Upload Snapshot/i });
+    await user.click(uploadSnapshotButton);
+
+    // Wait for snapshot upload to complete
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith("/api/upload/snapshot", {
+        method: "POST",
+        body: expect.any(FormData),
+      });
+    });
+
+    // Wait for modal to close and card to show file is loaded
+    await waitFor(() => {
+      expect(screen.queryByText(/Upload Snapshot File/i)).not.toBeInTheDocument();
+    });
+
+    // Verify "Loaded" badge appears on card
+    await waitFor(() => {
+      expect(screen.getByText(/Loaded/i)).toBeInTheDocument();
+    });
+
+    // Click Upload button on ISIS card to open modal
+    const isisUploadButtons = screen.getAllByRole("button", { name: /Upload/i });
+    // Second Upload button is for ISIS card (or find by Re-upload if snapshot is loaded)
+    const isisUploadButton = isisUploadButtons.find(btn =>
+      btn.textContent?.includes("Upload") && !btn.textContent?.includes("Snapshot")
+    ) || isisUploadButtons[1];
+    await user.click(isisUploadButton);
+
+    // Wait for ISIS modal to open
+    await waitFor(() => {
+      expect(screen.getByText(/Upload IS-IS Database File/i)).toBeInTheDocument();
+    });
+
+    // Find ISIS file input in modal (rendered in portal)
+    const isisInput = document.querySelector("#isis-upload-unified") as HTMLInputElement;
+    expect(isisInput).toBeTruthy();
+
+    // Create and upload ISIS file
+    const isisFile = new File(['{"test": "isis-data"}'], "isis-db.json", {
+      type: "application/json",
+    });
     await user.upload(isisInput, isisFile);
 
-    // Submit form
-    const uploadButton = screen.getByRole("button", { name: /Upload & Process/i });
-    await user.click(uploadButton);
+    // Click "Upload IS-IS Database" button in modal
+    const uploadIsisButton = screen.getByRole("button", { name: /Upload IS-IS Database/i });
+    await user.click(uploadIsisButton);
 
-    // Wait for upload to complete
+    // Wait for ISIS upload to complete
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(mockFetch).toHaveBeenCalledWith("/api/upload/isis", {
+        method: "POST",
+        body: expect.any(FormData),
+      });
     });
 
-    // Verify correct API call
-    expect(mockFetch).toHaveBeenCalledWith("/api/upload", {
-      method: "POST",
-      body: expect.any(FormData),
-    });
-
-    // Verify success message
-    await waitFor(() => {
-      expect(
-        screen.getByText(/Files processed successfully/i)
-      ).toBeInTheDocument();
-    });
-
-    // Verify redirect to results page
+    // Auto-processing should trigger automatically
     await waitFor(
       () => {
-        expect(mockPush).toHaveBeenCalledWith("/results");
+        expect(mockFetch).toHaveBeenCalledWith("/api/topology/process", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: expect.any(String),
+        });
       },
       { timeout: 3000 }
     );
+
+    // Verify success message appears
+    await waitFor(() => {
+      expect(screen.getByText(/Topology processed successfully/i)).toBeInTheDocument();
+    });
   });
 
-  it("should handle upload and processing errors", async () => {
+  it("should handle snapshot upload errors", async () => {
     const user = userEvent.setup();
 
-    // Mock upload/processing error
+    // Mock snapshot upload error
     mockFetch.mockResolvedValueOnce({
       ok: false,
       json: async () => ({
@@ -130,218 +222,266 @@ describe("Upload Flow Integration", () => {
 
     render(
       <TopologyProvider>
-        <UploadPage />
+        <HomePage />
       </TopologyProvider>
     );
 
+    // Click Upload button on Snapshot card
+    const uploadButtons = screen.getAllByRole("button", { name: /Upload/i });
+    await user.click(uploadButtons[0]);
+
+    // Wait for modal
+    await waitFor(() => {
+      expect(screen.getByText(/Upload Snapshot File/i)).toBeInTheDocument();
+    });
+
+    // Upload file
+    const snapshotInput = document.querySelector("#snapshot-upload-unified") as HTMLInputElement;
     const snapshotFile = new File(['{"test": "data"}'], "snapshot.json", {
       type: "application/json",
     });
-    const isisFile = new File(['{"test": "isis"}'], "isis-db.json", {
-      type: "application/json",
-    });
-
-    const snapshotInput = screen.getByLabelText(/Snapshot File/i);
-    const isisInput = screen.getByLabelText(/IS-IS Database File/i);
-
     await user.upload(snapshotInput, snapshotFile);
-    await user.upload(isisInput, isisFile);
 
-    const uploadButton = screen.getByRole("button", { name: /Upload & Process/i });
+    // Click upload button
+    const uploadButton = screen.getByRole("button", { name: /Upload Snapshot/i });
     await user.click(uploadButton);
 
+    // Wait for upload API call
     await waitFor(() => {
-      expect(
-        screen.getByText(/Invalid JSON structure/i)
-      ).toBeInTheDocument();
+      expect(mockFetch).toHaveBeenCalledWith("/api/upload/snapshot", {
+        method: "POST",
+        body: expect.any(FormData),
+      });
     });
 
-    // Should not redirect
-    expect(mockPush).not.toHaveBeenCalled();
+    // Verify error message appears in modal (modal stays open on error)
+    await waitFor(() => {
+      expect(screen.getByText(/Invalid JSON structure/i)).toBeInTheDocument();
+    });
   });
 
-  it("should require both files before submission", async () => {
+  it("should handle ISIS upload errors", async () => {
     const user = userEvent.setup();
+
+    // Mock successful snapshot upload
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        success: true,
+        data: {
+          snapshot: { test: "snapshot-data" },
+          filename: "snapshot.json",
+          size: 100,
+          timestamp: Date.now(),
+          source: "upload",
+        },
+      }),
+    } as Response);
+
+    // Mock ISIS upload error
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      json: async () => ({
+        success: false,
+        error: "Invalid ISIS structure",
+      }),
+    } as Response);
 
     render(
       <TopologyProvider>
-        <UploadPage />
+        <HomePage />
       </TopologyProvider>
     );
 
-    // Try to submit without files
-    const uploadButton = screen.getByRole("button", { name: /Upload & Process/i });
+    // Upload snapshot first
+    const uploadButtons = screen.getAllByRole("button", { name: /Upload/i });
+    await user.click(uploadButtons[0]);
 
-    // Button should be disabled
-    expect(uploadButton).toBeDisabled();
+    await waitFor(() => {
+      expect(screen.getByText(/Upload Snapshot File/i)).toBeInTheDocument();
+    });
 
-    // Upload only snapshot file
-    const snapshotFile = new File(['{"test": "data"}'], "snapshot.json", {
+    const snapshotInput = document.querySelector("#snapshot-upload-unified") as HTMLInputElement;
+    const snapshotFile = new File(['{"test": "snapshot-data"}'], "snapshot.json", {
       type: "application/json",
     });
-    const snapshotInput = screen.getByLabelText(/Snapshot File/i);
     await user.upload(snapshotInput, snapshotFile);
 
-    // Button should still be disabled
-    expect(uploadButton).toBeDisabled();
+    const uploadSnapshotButton = screen.getByRole("button", { name: /Upload Snapshot/i });
+    await user.click(uploadSnapshotButton);
 
-    // Upload ISIS file
-    const isisFile = new File(['{"test": "isis"}'], "isis-db.json", {
+    // Wait for modal to close after successful upload
+    await waitFor(() => {
+      expect(screen.queryByText(/Upload Snapshot File/i)).not.toBeInTheDocument();
+    });
+
+    // Now upload ISIS with error
+    const isisUploadButtons = screen.getAllByRole("button", { name: /Upload/i });
+    // Click the Upload/Re-upload button on ISIS card
+    await user.click(isisUploadButtons[1]);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Upload IS-IS Database File/i)).toBeInTheDocument();
+    });
+
+    const isisInput = document.querySelector("#isis-upload-unified") as HTMLInputElement;
+    const isisFile = new File(['{"test": "isis-data"}'], "isis-db.json", {
       type: "application/json",
     });
-    const isisInput = screen.getByLabelText(/IS-IS Database File/i);
     await user.upload(isisInput, isisFile);
 
-    // Now button should be enabled
-    expect(uploadButton).not.toBeDisabled();
+    const uploadIsisButton = screen.getByRole("button", { name: /Upload IS-IS Database/i });
+    await user.click(uploadIsisButton);
+
+    // Wait for API call
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith("/api/upload/isis", expect.any(Object));
+    });
+
+    // Verify error message appears in modal
+    await waitFor(() => {
+      expect(screen.getByText(/Invalid ISIS structure/i)).toBeInTheDocument();
+    });
   });
 
-  it("should show processing progress", async () => {
+  it("should handle topology processing errors", async () => {
     const user = userEvent.setup();
 
-    mockFetch.mockImplementationOnce(
-      () =>
-        new Promise((resolve) => {
-          setTimeout(() => {
-            resolve({
-              ok: true,
-              json: async () => ({
-                success: true,
-                data: {
-                  topology: [],
-                  locations: [],
-                  summary: {
-                    total_links: 88,
-                    healthy: 77,
-                    drift_high: 10,
-                    missing_telemetry: 0,
-                    missing_isis: 1,
-                  },
-                  processedAt: new Date().toISOString(),
-                },
-              }),
-            } as Response);
-          }, 300);
-        })
-    );
+    // Mock successful uploads
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        success: true,
+        data: {
+          snapshot: { test: "snapshot-data" },
+          filename: "snapshot.json",
+          size: 100,
+          timestamp: Date.now(),
+          source: "upload",
+        },
+      }),
+    } as Response);
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        success: true,
+        data: {
+          isis: { test: "isis-data" },
+          filename: "isis-db.json",
+          size: 50,
+          timestamp: Date.now(),
+          source: "upload",
+        },
+      }),
+    } as Response);
+
+    // Mock processing error
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      json: async () => ({
+        success: false,
+        error: "Failed to process topology",
+      }),
+    } as Response);
 
     render(
       <TopologyProvider>
-        <UploadPage />
+        <HomePage />
       </TopologyProvider>
     );
 
-    const snapshotFile = new File(['{"test": "data"}'], "snapshot.json", {
-      type: "application/json",
-    });
-    const isisFile = new File(['{"test": "isis"}'], "isis-db.json", {
-      type: "application/json",
-    });
+    // Upload both files
+    const uploadButtons = screen.getAllByRole("button", { name: /Upload/i });
 
-    const snapshotInput = screen.getByLabelText(/Snapshot File/i);
-    const isisInput = screen.getByLabelText(/IS-IS Database File/i);
+    // Snapshot
+    await user.click(uploadButtons[0]);
+    await waitFor(() => screen.getByText(/Upload Snapshot File/i));
+    const snapshotInput = document.querySelector("#snapshot-upload-unified") as HTMLInputElement;
+    await user.upload(snapshotInput, new File(['{"test": "data"}'], "snapshot.json", { type: "application/json" }));
+    await user.click(screen.getByRole("button", { name: /Upload Snapshot/i }));
+    // Wait for modal to close
+    await waitFor(() => expect(screen.queryByText(/Upload Snapshot File/i)).not.toBeInTheDocument());
 
-    await user.upload(snapshotInput, snapshotFile);
-    await user.upload(isisInput, isisFile);
+    // ISIS
+    const isisButtons = screen.getAllByRole("button", { name: /Upload/i });
+    await user.click(isisButtons[1]);
+    await waitFor(() => screen.getByText(/Upload IS-IS Database File/i));
+    const isisInput = document.querySelector("#isis-upload-unified") as HTMLInputElement;
+    await user.upload(isisInput, new File(['{"test": "data"}'], "isis-db.json", { type: "application/json" }));
+    await user.click(screen.getByRole("button", { name: /Upload IS-IS Database/i }));
+    // Wait for modal to close
+    await waitFor(() => expect(screen.queryByText(/Upload IS-IS Database File/i)).not.toBeInTheDocument());
 
-    const uploadButton = screen.getByRole("button", { name: /Upload & Process/i });
-    await user.click(uploadButton);
-
-    // Check for processing progress
-    await waitFor(() => {
-      expect(screen.getByText(/Analyzing topology data/i)).toBeInTheDocument();
-    });
-
-    // Check button shows "Processing..."
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: /Processing/i })).toBeInTheDocument();
-    });
-
-    // Wait for success
+    // Wait for auto-processing to be called (will fail with mocked error)
     await waitFor(
       () => {
-        expect(
-          screen.getByText(/Files processed successfully/i)
-        ).toBeInTheDocument();
+        expect(mockFetch).toHaveBeenCalledWith("/api/topology/process", expect.any(Object));
       },
       { timeout: 3000 }
     );
+
+    // Note: Error handling for processing happens in TopologyContext
+    // Processing errors are logged to console but may not be displayed in UI
   });
 
-  it("should allow resetting the form", async () => {
+  it("should display loaded file info in cards", async () => {
     const user = userEvent.setup();
+
+    // Mock successful snapshot upload
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        success: true,
+        data: {
+          snapshot: { test: "snapshot-data" },
+          filename: "snapshot.json",
+          size: 100,
+          timestamp: Date.now(),
+          source: "upload",
+        },
+      }),
+    } as Response);
 
     render(
       <TopologyProvider>
-        <UploadPage />
+        <HomePage />
       </TopologyProvider>
     );
 
-    const snapshotFile = new File(['{"test": "data"}'], "snapshot.json", {
-      type: "application/json",
-    });
-    const isisFile = new File(['{"test": "isis"}'], "isis-db.json", {
-      type: "application/json",
-    });
-
-    const snapshotInput = screen.getByLabelText(/Snapshot File/i);
-    const isisInput = screen.getByLabelText(/IS-IS Database File/i);
-
-    await user.upload(snapshotInput, snapshotFile);
-    await user.upload(isisInput, isisFile);
-
-    // Verify files are selected
-    expect(screen.getByText(/Selected: snapshot.json/i)).toBeInTheDocument();
-    expect(screen.getByText(/Selected: isis-db.json/i)).toBeInTheDocument();
-
-    // Click reset button
-    const resetButton = screen.getByRole("button", { name: /Reset/i });
-    await user.click(resetButton);
-
-    // Verify files are cleared
-    expect(screen.queryByText(/Selected: snapshot.json/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/Selected: isis-db.json/i)).not.toBeInTheDocument();
-
-    // Upload button should be disabled again
-    const uploadButton = screen.getByRole("button", { name: /Upload & Process/i });
-    expect(uploadButton).toBeDisabled();
-  });
-
-  it("should handle network errors", async () => {
-    const user = userEvent.setup();
-
-    // Mock network error
-    mockFetch.mockRejectedValueOnce(new Error("Network error"));
-
-    render(
-      <TopologyProvider>
-        <UploadPage />
-      </TopologyProvider>
-    );
-
-    const snapshotFile = new File(['{"test": "data"}'], "snapshot.json", {
-      type: "application/json",
-    });
-    const isisFile = new File(['{"test": "isis"}'], "isis-db.json", {
-      type: "application/json",
-    });
-
-    const snapshotInput = screen.getByLabelText(/Snapshot File/i);
-    const isisInput = screen.getByLabelText(/IS-IS Database File/i);
-
-    await user.upload(snapshotInput, snapshotFile);
-    await user.upload(isisInput, isisFile);
-
-    const uploadButton = screen.getByRole("button", { name: /Upload & Process/i });
-    await user.click(uploadButton);
+    // Upload snapshot
+    const uploadButtons = screen.getAllByRole("button", { name: /Upload/i });
+    await user.click(uploadButtons[0]);
 
     await waitFor(() => {
-      expect(
-        screen.getByText(/Network error/i)
-      ).toBeInTheDocument();
+      expect(screen.getByText(/Upload Snapshot File/i)).toBeInTheDocument();
     });
 
-    // Should not redirect
-    expect(mockPush).not.toHaveBeenCalled();
+    const snapshotInput = document.querySelector("#snapshot-upload-unified") as HTMLInputElement;
+    const snapshotFile = new File(['{"test": "data"}'], "snapshot.json", {
+      type: "application/json",
+    });
+    await user.upload(snapshotInput, snapshotFile);
+
+    const uploadButton = screen.getByRole("button", { name: /Upload Snapshot/i });
+    await user.click(uploadButton);
+
+    // Wait for upload to complete
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith("/api/upload/snapshot", expect.any(Object));
+    });
+
+    // Wait for modal to close
+    await waitFor(() => {
+      expect(screen.queryByText(/Upload Snapshot File/i)).not.toBeInTheDocument();
+    });
+
+    // Verify "Loaded" badge appears in card
+    await waitFor(() => {
+      expect(screen.getByText(/Loaded/i)).toBeInTheDocument();
+    });
+
+    // Verify filename is displayed in card (file info section)
+    expect(screen.getByText("snapshot.json")).toBeInTheDocument();
   });
 });

@@ -21,7 +21,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Map,
   Table,
@@ -33,7 +32,7 @@ import {
 
 export default function ResultsPage() {
   const router = useRouter();
-  const { topologyData, isLoading, error } = useTopology();
+  const { processedTopology, isLoading, error } = useTopology();
   const [mounted, setMounted] = useState(false);
 
   // Prevent hydration mismatch by only rendering on client
@@ -43,27 +42,25 @@ export default function ResultsPage() {
 
   // Prefetch map page for faster navigation
   useEffect(() => {
-    if (topologyData) {
+    if (processedTopology) {
       router.prefetch("/map");
     }
-  }, [topologyData, router]);
+  }, [processedTopology, router]);
 
-  // Redirect to upload if no data
-  useEffect(() => {
-    if (mounted && !isLoading && !topologyData && !error) {
-      router.push("/upload");
-    }
-  }, [mounted, isLoading, topologyData, error, router]);
+  // Removed redirect - show empty state instead
 
   // Show loading state during SSR and initial client mount
   if (!mounted || isLoading) {
     return (
-      <div className="container mx-auto py-10 max-w-4xl">
-        <Card>
-          <CardContent className="py-10">
-            <p className="text-center text-muted-foreground">
-              Processing topology data...
-            </p>
+      <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
+        <Card className="w-96">
+          <CardContent className="pt-6">
+            <div className="text-center space-y-4">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-foreground mx-auto"></div>
+              <p className="text-muted-foreground">
+                Loading topology data...
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -72,24 +69,39 @@ export default function ResultsPage() {
 
   if (error) {
     return (
-      <div className="container mx-auto py-10 max-w-4xl">
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-        <div className="mt-4">
-          <Button onClick={() => router.push("/upload")}>
-            Return to Upload
-          </Button>
-        </div>
+      <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
+        <Card className="w-96">
+          <CardContent className="pt-6">
+            <div className="text-center space-y-4">
+              <h3 className="text-lg font-semibold text-destructive">Error Loading Data</h3>
+              <p className="text-sm text-muted-foreground">{error}</p>
+              <Button onClick={() => router.push("/")}>Load Data</Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
-  if (!topologyData) {
-    return null; // Will redirect via useEffect
+  if (!processedTopology) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
+        <Card className="w-96">
+          <CardContent className="pt-6">
+            <div className="text-center space-y-4">
+              <h3 className="text-lg font-semibold">No Data Available</h3>
+              <p className="text-sm text-muted-foreground">
+                Please load topology data files to view results.
+              </p>
+              <Button onClick={() => router.push("/")}>Load Data</Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
-  const { summary } = topologyData;
+  const { summary } = processedTopology;
 
   const healthPercentage = (count: number): string => {
     if (summary.total_links === 0) return "0.0";
@@ -97,7 +109,7 @@ export default function ResultsPage() {
   };
 
   return (
-    <div className="container mx-auto py-10 max-w-6xl space-y-8">
+    <div className="container mx-auto py-10 space-y-8">
       {/* Navigation Cards - Large */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card

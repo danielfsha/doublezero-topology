@@ -28,7 +28,7 @@ import type { WeightingStrategy } from "@/lib/graph/types";
 function MapPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { topologyData, isLoading, error } = useTopology();
+  const { processedTopology, isLoading, error } = useTopology();
   const { setSelectedLink } = useTableStore();
   const {
     weightingStrategy,
@@ -77,15 +77,15 @@ function MapPageContent() {
 
   // Apply filters to links (must be called before conditional returns - Rules of Hooks)
   const filteredLinks = useMemo(() => {
-    if (!topologyData?.topology) return [];
-    return filterLinks(topologyData.topology, {
+    if (!processedTopology?.topology) return [];
+    return filterLinks(processedTopology.topology, {
       bandwidthTiers: filters.bandwidthTiers,
       healthStatuses: filters.healthStatuses,
       driftRange: filters.driftRange,
       dataStatuses: filters.dataStatuses,
       searchQuery: filters.searchQuery,
     });
-  }, [topologyData?.topology, filters.bandwidthTiers, filters.healthStatuses, filters.driftRange, filters.dataStatuses, filters.searchQuery]);
+  }, [processedTopology?.topology, filters.bandwidthTiers, filters.healthStatuses, filters.driftRange, filters.dataStatuses, filters.searchQuery]);
 
   // Handler for computing path from modal
   const handleComputePath = (
@@ -93,14 +93,14 @@ function MapPageContent() {
     destinationId: string,
     strategy: WeightingStrategy,
   ) => {
-    if (!topologyData?.topology) return;
+    if (!processedTopology?.topology) return;
 
     setWeightingStrategy(strategy);
     setIsComputing(true);
 
     try {
       const result = computePathSync({
-        links: topologyData.topology,
+        links: processedTopology.topology,
         sourceId,
         destinationId,
         weightingStrategy: strategy,
@@ -126,7 +126,7 @@ function MapPageContent() {
 
   // Handler for strategy change - recompute path with new strategy
   const handleStrategyChange = (newStrategy: typeof weightingStrategy) => {
-    if (!isPathActiveMode() || !computedPath || !topologyData?.topology) {
+    if (!isPathActiveMode() || !computedPath || !processedTopology?.topology) {
       return;
     }
 
@@ -135,7 +135,7 @@ function MapPageContent() {
 
     try {
       const result = computePathSync({
-        links: topologyData.topology,
+        links: processedTopology.topology,
         sourceId: computedPath.source.name,
         destinationId: computedPath.destination.name,
         weightingStrategy: newStrategy,
@@ -191,7 +191,7 @@ function MapPageContent() {
             <div className="text-center space-y-4">
               <h3 className="text-lg font-semibold text-destructive">Error Loading Map</h3>
               <p className="text-sm text-muted-foreground">{error}</p>
-              <Button onClick={() => router.push("/upload")}>Back to Upload</Button>
+              <Button onClick={() => router.push("/")}>Load Data</Button>
             </div>
           </CardContent>
         </Card>
@@ -199,7 +199,7 @@ function MapPageContent() {
     );
   }
 
-  if (!topologyData) {
+  if (!processedTopology) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
         <Card className="w-96">
@@ -207,9 +207,9 @@ function MapPageContent() {
             <div className="text-center space-y-4">
               <h3 className="text-lg font-semibold">No Data Available</h3>
               <p className="text-sm text-muted-foreground">
-                Please upload topology data files to view the map.
+                Please load topology data files to view the map.
               </p>
-              <Button onClick={() => router.push("/upload")}>Go to Upload</Button>
+              <Button onClick={() => router.push("/")}>Load Data</Button>
             </div>
           </CardContent>
         </Card>
@@ -221,7 +221,7 @@ function MapPageContent() {
     <div className="h-[calc(100vh-4rem)] w-full flex overflow-hidden relative">
       {/* Sidebar */}
       <MapSidebar
-        links={topologyData.topology}
+        links={processedTopology.topology}
         visibleCount={filteredLinks.length}
       />
 
@@ -229,8 +229,8 @@ function MapPageContent() {
       <div className="flex-1 relative">
         {/* Floating Search Overlay */}
         <MapSearch
-          links={topologyData.topology}
-          locations={topologyData.locations}
+          links={processedTopology.topology}
+          locations={processedTopology.locations}
         />
 
         {/* Plan Route / Exit Path Mode Button */}
@@ -261,7 +261,7 @@ function MapPageContent() {
         <RouteModal
           open={isRouteModalOpen}
           onOpenChange={setIsRouteModalOpen}
-          locations={topologyData.locations}
+          locations={processedTopology.locations}
           onComputePath={handleComputePath}
           isComputing={isComputingPath}
         />
@@ -300,7 +300,7 @@ function MapPageContent() {
         {/* Map */}
         <MapboxMap
           links={filteredLinks}
-          locations={topologyData.locations}
+          locations={processedTopology.locations}
           onCurrentHopChange={setCurrentHopIndex}
         />
       </div>

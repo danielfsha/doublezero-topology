@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Upload Page Redirect (v3)
+ * Fetch Page Redirect (v3)
  *
  * Redirects to unified /load page.
  * This page is deprecated in favor of /load.
@@ -10,7 +10,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-export default function UploadPage() {
+export default function FetchPage() {
   const router = useRouter();
 
   useEffect(() => {

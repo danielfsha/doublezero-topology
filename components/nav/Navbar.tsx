@@ -7,6 +7,7 @@ import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { EpochBadge } from "@/components/layout/EpochBadge";
 
 export function Navbar() {
   const pathname = usePathname();
@@ -43,32 +44,6 @@ export function Navbar() {
 
           {/* Navigation Links and Theme Toggle */}
           <div className="flex items-center gap-2">
-            <Link href="/">
-              <Button
-                variant="ghost"
-                size="sm"
-                className={
-                  isActive("/")
-                    ? "bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/50 dark:text-blue-400 dark:hover:bg-blue-950 font-medium"
-                    : "text-muted-foreground hover:text-foreground hover:bg-accent"
-                }
-              >
-                Dashboard
-              </Button>
-            </Link>
-            <Link href="/upload">
-              <Button
-                variant="ghost"
-                size="sm"
-                className={
-                  isActive("/upload")
-                    ? "bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/50 dark:text-blue-400 dark:hover:bg-blue-950 font-medium"
-                    : "text-muted-foreground hover:text-foreground hover:bg-accent"
-                }
-              >
-                Upload
-              </Button>
-            </Link>
             <Link href="/results">
               <Button
                 variant="ghost"
@@ -108,6 +83,11 @@ export function Navbar() {
                 Links
               </Button>
             </Link>
+
+            {/* Epoch Badge */}
+            <div className="ml-2 pl-2 border-l border-border">
+              <EpochBadge />
+            </div>
 
             {/* Theme Toggle */}
             <div className="ml-2 pl-2 border-l border-border">

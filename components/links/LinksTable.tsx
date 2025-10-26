@@ -54,7 +54,9 @@ function formatDriftPct(pct: number | null): string {
 
 export function LinksTable({ data }: LinksTableProps) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
+    [],
+  );
   const [globalFilter, setGlobalFilter] = React.useState("");
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -64,7 +66,7 @@ export function LinksTable({ data }: LinksTableProps) {
   // Auto-detect unique bandwidth values from data
   const uniqueBandwidths = React.useMemo(() => {
     const tiersSet = new Set<number>();
-    data.forEach(link => {
+    data.forEach((link) => {
       const tier = getBandwidthTier(link.bandwidth_gbps);
       tiersSet.add(tier);
     });
@@ -73,22 +75,22 @@ export function LinksTable({ data }: LinksTableProps) {
 
   // Prefetch map page for faster navigation
   React.useEffect(() => {
-    router.prefetch('/map');
+    router.prefetch("/map");
   }, [router]);
 
   // Apply filters from URL params on mount
   React.useEffect(() => {
-    const healthStatus = searchParams.get('health_status');
-    const dataStatus = searchParams.get('data_status');
+    const healthStatus = searchParams.get("health_status");
+    const dataStatus = searchParams.get("data_status");
 
     const filters: ColumnFiltersState = [];
 
     if (healthStatus) {
-      filters.push({ id: 'health_status', value: healthStatus });
+      filters.push({ id: "health_status", value: healthStatus });
     }
 
     if (dataStatus) {
-      filters.push({ id: 'data_status', value: dataStatus });
+      filters.push({ id: "data_status", value: dataStatus });
     }
 
     if (filters.length > 0) {
@@ -121,16 +123,20 @@ export function LinksTable({ data }: LinksTableProps) {
     },
     {
       accessorKey: "device_a_code",
-      header: "Source Device",
+      header: "SourceDevice",
       cell: ({ row }) => (
-        <span className="font-mono text-sm">{row.getValue("device_a_code")}</span>
+        <span className="font-mono text-sm">
+          {row.getValue("device_a_code")}
+        </span>
       ),
     },
     {
       accessorKey: "device_z_code",
       header: "Target Device",
       cell: ({ row }) => (
-        <span className="font-mono text-sm">{row.getValue("device_z_code")}</span>
+        <span className="font-mono text-sm">
+          {row.getValue("device_z_code")}
+        </span>
       ),
     },
     {
@@ -177,9 +183,7 @@ export function LinksTable({ data }: LinksTableProps) {
         }
 
         return (
-          <span className={`font-semibold ${colorClass}`}>
-            {bandwidth}
-          </span>
+          <span className={`font-semibold ${colorClass}`}>{bandwidth}</span>
         );
       },
       sortingFn: (rowA, rowB) => {
@@ -195,22 +199,22 @@ export function LinksTable({ data }: LinksTableProps) {
     },
     {
       accessorKey: "expected_delay_us",
-      header: "Expected Delay",
+      header: "Latency (E)",
       cell: ({ row }) => formatDelay(row.getValue("expected_delay_us")),
     },
     {
       accessorKey: "measured_p90_us",
-      header: "Measured P90",
+      header: "P90 (M)",
       cell: ({ row }) => formatDelay(row.getValue("measured_p90_us")),
     },
     {
       accessorKey: "measured_p95_us",
-      header: "Measured P95",
+      header: "P95 (M)",
       cell: ({ row }) => formatDelay(row.getValue("measured_p95_us")),
     },
     {
       accessorKey: "measured_p99_us",
-      header: "Measured P99",
+      header: "P99 (M)",
       cell: ({ row }) => formatDelay(row.getValue("measured_p99_us")),
     },
     {
@@ -219,8 +223,14 @@ export function LinksTable({ data }: LinksTableProps) {
       cell: ({ row }) => {
         const drift = row.getValue("drift_pct") as number | null;
         const formatted = formatDriftPct(drift);
-        if (drift === null) return <span className="text-muted-foreground">{formatted}</span>;
-        if (drift >= 10) return <span className="text-red-400 dark:text-red-400 font-semibold">{formatted}</span>;
+        if (drift === null)
+          return <span className="text-muted-foreground">{formatted}</span>;
+        if (drift >= 10)
+          return (
+            <span className="text-red-400 dark:text-red-400 font-semibold">
+              {formatted}
+            </span>
+          );
         return <span>{formatted}</span>;
       },
     },
@@ -261,16 +271,23 @@ export function LinksTable({ data }: LinksTableProps) {
     setHoveredLink(linkPk);
   };
 
-  const healthStatusFilter = table.getColumn("health_status")?.getFilterValue() as string | undefined;
-  const dataStatusFilter = table.getColumn("data_status")?.getFilterValue() as string | undefined;
-  const bandwidthFilter = table.getColumn("bandwidth_gbps")?.getFilterValue() as string | undefined;
+  const healthStatusFilter = table
+    .getColumn("health_status")
+    ?.getFilterValue() as string | undefined;
+  const dataStatusFilter = table.getColumn("data_status")?.getFilterValue() as
+    | string
+    | undefined;
+  const bandwidthFilter = table
+    .getColumn("bandwidth_gbps")
+    ?.getFilterValue() as string | undefined;
 
   const clearAllFilters = () => {
     setColumnFilters([]);
-    router.push('/links');
+    router.push("/links");
   };
 
-  const hasActiveFilters = healthStatusFilter || dataStatusFilter || bandwidthFilter;
+  const hasActiveFilters =
+    healthStatusFilter || dataStatusFilter || bandwidthFilter;
 
   return (
     <div className="space-y-4">
@@ -282,19 +299,23 @@ export function LinksTable({ data }: LinksTableProps) {
           </span>
           {healthStatusFilter && (
             <Badge variant="secondary" className="gap-1">
-              Health: {healthStatusFilter.replace('_', ' ')}
+              Health: {healthStatusFilter.replace("_", " ")}
               <X
                 className="h-3 w-3 cursor-pointer hover:text-destructive"
-                onClick={() => table.getColumn("health_status")?.setFilterValue(undefined)}
+                onClick={() =>
+                  table.getColumn("health_status")?.setFilterValue(undefined)
+                }
               />
             </Badge>
           )}
           {dataStatusFilter && (
             <Badge variant="secondary" className="gap-1">
-              Data: {dataStatusFilter.replace('_', ' ')}
+              Data: {dataStatusFilter.replace("_", " ")}
               <X
                 className="h-3 w-3 cursor-pointer hover:text-destructive"
-                onClick={() => table.getColumn("data_status")?.setFilterValue(undefined)}
+                onClick={() =>
+                  table.getColumn("data_status")?.setFilterValue(undefined)
+                }
               />
             </Badge>
           )}
@@ -303,7 +324,9 @@ export function LinksTable({ data }: LinksTableProps) {
               Bandwidth: {bandwidthFilter} Gbps
               <X
                 className="h-3 w-3 cursor-pointer hover:text-destructive"
-                onClick={() => table.getColumn("bandwidth_gbps")?.setFilterValue(undefined)}
+                onClick={() =>
+                  table.getColumn("bandwidth_gbps")?.setFilterValue(undefined)
+                }
               />
             </Badge>
           )}
@@ -318,21 +341,23 @@ export function LinksTable({ data }: LinksTableProps) {
         </div>
       )}
 
-      <div className="flex items-center gap-4 flex-wrap">
+      <div className="flex items-center gap-3">
         <Input
           placeholder="Search links, devices..."
           value={globalFilter}
           onChange={(e) => setGlobalFilter(e.target.value)}
-          className="max-w-sm"
+          className="w-[280px]"
         />
 
         <Select
           value={healthStatusFilter ?? "ALL"}
           onValueChange={(value) =>
-            table.getColumn("health_status")?.setFilterValue(value === "ALL" ? undefined : value)
+            table
+              .getColumn("health_status")
+              ?.setFilterValue(value === "ALL" ? undefined : value)
           }
         >
-          <SelectTrigger className="w-[200px]">
+          <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Filter by health" />
           </SelectTrigger>
           <SelectContent>
@@ -347,10 +372,12 @@ export function LinksTable({ data }: LinksTableProps) {
         <Select
           value={dataStatusFilter ?? "ALL"}
           onValueChange={(value) =>
-            table.getColumn("data_status")?.setFilterValue(value === "ALL" ? undefined : value)
+            table
+              .getColumn("data_status")
+              ?.setFilterValue(value === "ALL" ? undefined : value)
           }
         >
-          <SelectTrigger className="w-[200px]">
+          <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Filter by data" />
           </SelectTrigger>
           <SelectContent>
@@ -365,15 +392,17 @@ export function LinksTable({ data }: LinksTableProps) {
         <Select
           value={bandwidthFilter ?? "ALL"}
           onValueChange={(value) =>
-            table.getColumn("bandwidth_gbps")?.setFilterValue(value === "ALL" ? undefined : value)
+            table
+              .getColumn("bandwidth_gbps")
+              ?.setFilterValue(value === "ALL" ? undefined : value)
           }
         >
-          <SelectTrigger className="w-[200px]">
+          <SelectTrigger className="w-[160px]">
             <SelectValue placeholder="Filter by bandwidth" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="ALL">All Bandwidth</SelectItem>
-            {uniqueBandwidths.map(bw => (
+            {uniqueBandwidths.map((bw) => (
               <SelectItem key={bw} value={String(bw)}>
                 {bw} Gbps
               </SelectItem>
@@ -381,7 +410,8 @@ export function LinksTable({ data }: LinksTableProps) {
           </SelectContent>
         </Select>
 
-        <div className="ml-auto text-sm text-muted-foreground">
+        <div className="ml-auto text-sm text-muted-foreground whitespace-nowrap">
+          M = measured, E = expected<br></br>
           {table.getFilteredRowModel().rows.length} of {data.length} links
         </div>
       </div>
@@ -402,7 +432,10 @@ export function LinksTable({ data }: LinksTableProps) {
                         }
                         onClick={header.column.getToggleSortingHandler()}
                       >
-                        {flexRender(header.column.columnDef.header, header.getContext())}
+                        {flexRender(
+                          header.column.columnDef.header,
+                          header.getContext(),
+                        )}
                         {{
                           asc: " ↑",
                           desc: " ↓",
@@ -428,12 +461,17 @@ export function LinksTable({ data }: LinksTableProps) {
                     onMouseEnter={() => handleRowHover(linkPk)}
                     onMouseLeave={() => handleRowHover(null)}
                     className={`cursor-pointer transition-colors ${
-                      isSelected ? "bg-blue-50 dark:bg-blue-900/20" : "hover:bg-muted/50"
+                      isSelected
+                        ? "bg-blue-50 dark:bg-blue-900/20"
+                        : "hover:bg-muted/50"
                     }`}
                   >
                     {row.getVisibleCells().map((cell) => (
                       <TableCell key={cell.id}>
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext(),
+                        )}
                       </TableCell>
                     ))}
                   </TableRow>
@@ -441,7 +479,10 @@ export function LinksTable({ data }: LinksTableProps) {
               })
             ) : (
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center"
+                >
                   No results.
                 </TableCell>
               </TableRow>
@@ -452,7 +493,8 @@ export function LinksTable({ data }: LinksTableProps) {
 
       <div className="flex items-center justify-between">
         <div className="text-sm text-muted-foreground">
-          Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
+          Page {table.getState().pagination.pageIndex + 1} of{" "}
+          {table.getPageCount()}
         </div>
         <div className="flex gap-2">
           <Button

@@ -1059,7 +1059,7 @@ export function MapboxMap({
                     {hoveredLink.bandwidth_label || 'N/A'}
                   </span>
                 </div>
-                {hoveredLink.drift_pct !== null && (
+                {hoveredLink.drift_pct != null && (
                   <div className="flex justify-between items-center py-1.5 border-b border-border/50">
                     <span className="text-muted-foreground">Drift:</span>
                     <span className={`font-semibold ${
@@ -1218,7 +1218,7 @@ export function MapboxMap({
                     {pinnedLink.bandwidth_label || 'N/A'}
                   </span>
                 </div>
-                {pinnedLink.drift_pct !== null && (
+                {pinnedLink.drift_pct != null && (
                   <div className="flex justify-between items-center py-1.5 border-b border-border/50">
                     <span className="text-muted-foreground">Drift:</span>
                     <span className={`font-semibold ${
